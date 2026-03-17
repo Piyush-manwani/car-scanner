@@ -1,0 +1,73 @@
+name: Build Installers
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+
+  # ── Windows → .msi ──────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller customtkinter Pillow
+
+      - name: Install WiX Toolset
+        run: |
+          choco install wixtoolset -y
+          echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" >> $env:GITHUB_PATH
+
+      - name: Build MSI
+        run: python build.py
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: "*.msi"
+
+  # ── Mac → .app ───────────────────────────────────────────────────────────────
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller customtkinter Pillow
+
+      - name: Build .app with PyInstaller
+        run: |
+          pyinstaller \
+            --noconfirm \
+            --onedir \
+            --windowed \
+            --name "EngineScannerAI" \
+            --hidden-import PIL._tkinter_finder \
+            car_scanner.py
+
+      - name: Zip the .app
+        run: |
+          cd dist
+          zip -r ../EngineScannerAI-mac.zip EngineScannerAI.app
+
+      - name: Upload .app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: EngineScannerAI-mac.zip
